@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from flask import Flask, request
+import re
 import requests
 
 from langchain_groq import ChatGroq
@@ -31,10 +32,14 @@ system_rules = (
     "- বইকীটে বাচ্চারা ফ্রিতে বই পড়তে পারে। যেসব বাচ্চা পড়া জানে না, তাদের জন্য 'ভয়েস অ্যাসিস্ট্যান্ট' (Voice Assistant) আছে, যা দিয়ে তারা বইয়ের গল্প শুনতে পারে।\n"
     "- ডিজিটাল গল্প তৈরি একদম ফ্রি। তবে প্রিন্টেড হার্ডকপি বইয়ের দাম পেজ অনুযায়ী হয় এবং ডেলিভারি চার্জ আছে।\n\n"
     
-    "STRICT OPERATIONAL GUIDELINES:\n"
+    ""STRICT OPERATIONAL GUIDELINES:\n"
     "1. LANGUAGE: You must ONLY communicate in natural, fluent Bengali.\n"
-    "2. BOOK INQUIRIES: ALWAYS use 'fetch_realtime_books' tool to get live data. ONLY show Book Name and Price to the user. NEVER show Internal IDs to the user.\n"
-    "3. PARTIAL NAMES: If a customer types a partial book name (e.g., 'সততার বাঁশি'), intelligently match it to the correct full book name in the inventory.\n"
+    "2. BOOK INQUIRIES & ANTI-HALLUCINATION (CRITICAL): \n"
+    "   - ALWAYS execute the 'fetch_realtime_books' tool to check available books.\n"
+    "   - NEVER invent, guess, hallucinate, or make up book titles (e.g., do not say 'হাসির গল্প', 'সাহসী মেয়েটি' unless the tool explicitly returns them).\n"
+    "   - ONLY mention the EXACT book names provided by the tool's output.\n"
+    "   - If the tool returns no books, simply say: 'বর্তমানে আমাদের নতুন বইয়ের স্টক আপডেট করা হচ্ছে।'\n"
+    "3. PARTIAL NAMES: If a customer types a partial book name, intelligently match it to the correct full book name in the inventory.\n"
     "4. NO RAW CODE: NEVER output raw tool syntax like <function=...>. Keep tool usage completely hidden.\n\n"
     
     "ORDERING & CONFIRMATION PROTOCOL (CRITICAL):\n"
@@ -73,27 +78,25 @@ def handle_incoming_page_events():
                     
                     print(f"Incoming client query from {sender_id}: {user_query}")
                     
-                    # 1. মেমোরি চেক: নতুন ইউজার হলে তার জন্য হিস্ট্রি খাতা খোলা
                     if sender_id not in user_sessions:
                         user_sessions[sender_id] = []
                     
-                    # 2. ইউজারের নতুন মেসেজটি হিস্ট্রিতে যোগ করা
                     user_sessions[sender_id].append({"role": "user", "content": user_query})
                     
-                    # 3. শুধুমাত্র শেষের ৬টি মেসেজ পাঠানো (যাতে টোকেন লিমিট ক্রস না করে)
                     chat_history = user_sessions[sender_id][-6:]
                     
                     try:
-                        # 4. পুরো চ্যাট হিস্ট্রি এআই-এর কাছে পাঠানো
                         response = agent.invoke({
                             "messages": chat_history
                         })
                         ai_reply = response["messages"][-1].content
+                        
+                        ai_reply = re.sub(r'<function=.*?</function>', '', ai_reply, flags=re.DOTALL).strip()
+                        
                     except Exception as error:
                         print(f"Internal Agent Exception: {error}")
                         ai_reply = "দুঃখিত, এই মুহূর্তে একটি কারিগরি ত্রুটি ঘটেছে। দয়া করে আবার চেষ্টা করুন।"
                     
-                    # 5. এআই-এর দেওয়া উত্তরটাও হিস্ট্রিতে সেভ করে রাখা
                     user_sessions[sender_id].append({"role": "assistant", "content": ai_reply})
                     
                     dispatch_fb_response(sender_id, ai_reply)
