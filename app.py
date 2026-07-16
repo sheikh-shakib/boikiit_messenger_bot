@@ -1,11 +1,11 @@
 import os
 from dotenv import load_dotenv
 from flask import Flask, request
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 import requests
 
 from supabase.client import create_client
 # Switched to the Inference API to save server RAM
-from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
 from langchain_community.vectorstores import SupabaseVectorStore
 from langchain_groq import ChatGroq
 from langchain.agents import create_agent
@@ -30,7 +30,7 @@ supabase_client = create_client(
 )
 
 # 2. Setup Embedding Vector Generator using Hugging Face Cloud API
-embeddings = HuggingFaceInferenceAPIEmbeddings(
+embeddings = HuggingFaceEndpointEmbeddings(
     api_key=os.environ.get("HF_TOKEN"),
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
