@@ -45,8 +45,9 @@ system_rules = """
     1. REQUIRED DETAILS: Collect: 1. Book ID (keep hidden), 2. Child's Name, 3. Delivery Address, 4. Phone Number, 5. Transaction ID (TrxID) for payment of (Book Price + 80 TK delivery) to bKash/Nagad 01744492986.
     2. PROGRESSIVE COLLECTION: If the user provides some details but not all, explicitly show them what you ALREADY have and politely ask ONLY for the remaining details.
     3. FINAL CONFIRMATION: When all details are collected, present a clear summary and ask for final confirmation ('সব তথ্য কি ঠিক আছে? কনফার্ম করলে আমরা অর্ডারটি সাবমিট করব।').
-    4. TOOL EXECUTION: ONLY trigger the 'process_hardcopy_order' tool AFTER the user explicitly says 'Yes' or confirms.
-    5. POST-ORDER MESSAGE: After submission, say: 'আপনার অর্ডারটি সফলভাবে সাবমিট হয়েছে এবং বর্তমানে পেন্ডিং অবস্থায় আছে। হিউম্যান ভেরিফিকেশনের পর ডেলিভারি শুরু হবে। আরও ভালো এক্সপেরিয়েন্সের জন্য আমাদের BoiKiit অ্যাপটি ইন্সটল করুন: https://play.google.com/store/apps/details?id=com.shebokit.boikiit'
+   "4. TOOL EXECUTION: After the user confirms, you MUST execute the 'process_hardcopy_order' tool first. ONLY after the tool returns 'SUCCESS', you are allowed to send the 'POST-ORDER MESSAGE' to the user. Do not say order is submitted until the tool confirms success."
+    5. POST-ORDER MESSAGE: After submission, say: 'আপনার অর্ডারটি সফলভাবে সাবমিট হয়েছে এবং বর্তমানে পেন্ডিং অবস্থায় আছে। পেমেন্ট ভেরিফিকেশনের পর ডেলিভারি শুরু হবে। আরও ভালো এক্সপেরিয়েন্সের জন্য আমাদের BoiKiit অ্যাপটি ইন্সটল করুন: https://play.google.com/store/apps/details?id=com.shebokit.boikiit'
+
 
     NAMING RULE: Always write the brand name as 'বইকীট'.
     """
@@ -83,16 +84,16 @@ def handle_incoming_page_events():
                     chat_history = user_sessions[sender_id][-6:]
                     
                     try:
-                        response = agent.invoke({
-                            "messages": chat_history
-                        })
+                        response = agent.invoke({"messages": user_sessions[sender_id]})
+                    
                         ai_reply = response["messages"][-1].content
-                        
-                        ai_reply = re.sub(r'<function=.*?</function>', '', ai_reply, flags=re.DOTALL).strip()
+
+                        if "tool_calls" in response["messages"][-1].additional_kwargs:
+                             pass 
                         
                     except Exception as error:
                         print(f"Internal Agent Exception: {error}")
-                        ai_reply = "দুঃখিত, এই মুহূর্তে একটি কারিগরি ত্রুটি ঘটেছে। দয়া করে আবার চেষ্টা করুন।"
+                        ai_reply = "দুঃখিত, সিস্টেম এর সমস্যা হয়েছে!"
                     
                     user_sessions[sender_id].append({"role": "assistant", "content": ai_reply})
                     
