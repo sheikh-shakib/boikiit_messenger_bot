@@ -104,6 +104,10 @@ def handle_incoming_page_events():
                     
                         ai_reply = response["messages"][-1].content
 
+                        # --- Regex Filter: Remove raw function calling syntax ---
+                        # এটি <function=...> থেকে </function> পর্যন্ত সবকিছু ডিলিট করে দেবে
+                        ai_reply = re.sub(r"<function=.*?</function>", "", ai_reply, flags=re.DOTALL).strip()
+
                         if "tool_calls" in response["messages"][-1].additional_kwargs:
                              pass 
                         
