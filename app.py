@@ -91,7 +91,7 @@ def process_message_background(sender_id, user_query):
     
     user_sessions[sender_id].append({"role": "user", "content": user_query})
     
-    chat_history = user_sessions[sender_id][-6:]
+    chat_history = user_sessions[sender_id][-20:] 
     
     try:
         response = agent.invoke({"messages": chat_history})

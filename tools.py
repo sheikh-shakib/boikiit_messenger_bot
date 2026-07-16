@@ -13,15 +13,14 @@ def process_hardcopy_order(
     trx_id: str,
     delivery_phone: str,
     delivery_address: str,
-    user_id: str = None, 
     quantity: int = 1
 ) -> str:
     """
     Use this tool ONLY when a customer has provided their payment details (TrxID) 
     and all delivery information to complete their physical book purchase.
-    
-    All arguments are required string or numeric types mapping exactly to the DB schema.
     """
+    print(f"\n--- [DEBUG] TOOL EXECUTING: Order for {child_name} (Book: {book_id}) ---\n")
+    
     supabase_url = os.environ.get("SUPABASE_URL")
     supabase_key = os.environ.get("SUPABASE_SERVICE_KEY")
     supabase = create_client(supabase_url, supabase_key)
@@ -36,9 +35,6 @@ def process_hardcopy_order(
             "delivery_phone": delivery_phone,
             "delivery_address": delivery_address
         }
-        
-        if user_id:
-            order_payload["user_id"] = user_id
             
         order_response = supabase.table("orders").insert(order_payload).execute()
         inserted_order = order_response.data[0]
