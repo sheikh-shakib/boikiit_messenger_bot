@@ -5,6 +5,8 @@ import re
 import requests
 
 from langchain_groq import ChatGroq
+from langchain_mistralai.chat_models import ChatMistralAI
+from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 from langchain.agents import create_agent
 
 # Integrate custom transaction tools
@@ -13,12 +15,26 @@ from tools import process_hardcopy_order, fetch_realtime_books
 load_dotenv()
 app = Flask(__name__)
 
-REQUIRED_ENV_VARS = ["GROQ_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_KEY", "FB_VERIFY_TOKEN", "FB_PAGE_ACCESS_TOKEN"]
+REQUIRED_ENV_VARS = [
+    "GROQ_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_KEY", 
+    "FB_VERIFY_TOKEN", "FB_PAGE_ACCESS_TOKEN", 
+    "MISTRAL_API_KEY", "HUGGINGFACEHUB_API_TOKEN" # Added new keys
+]
 for var in REQUIRED_ENV_VARS:
     if not os.environ.get(var):
         raise ValueError(f"Missing required environment variable: {var}")
 
-llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=0.15)
+llm_groq = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=0.15)
+llm_mistral = ChatMistralAI(model="mistral-large-latest", temperature=0.15)
+
+hf_endpoint = HuggingFaceEndpoint(
+    repo_id="meta-llama/Meta-Llama-3-70B-Instruct", # Example model
+    task="text-generation",
+    temperature=0.15
+)
+llm_hf = ChatHuggingFace(llm=hf_endpoint)
+
+llm = llm_groq.with_fallbacks([llm_mistral, llm_hf])
 tools = [fetch_realtime_books, process_hardcopy_order]
 
 user_sessions = {}
@@ -53,7 +69,7 @@ system_rules = """
     """
 
 agent = create_agent(
-    model=llm,
+    model=llm, 
     tools=tools,
     system_prompt=system_rules
 )
@@ -93,7 +109,7 @@ def handle_incoming_page_events():
                         
                     except Exception as error:
                         print(f"Internal Agent Exception: {error}")
-                        ai_reply = "দুঃখিত, সিস্টেম এর সমস্যা হয়েছে!"
+                        ai_reply = "আসসালামু আলাইকুম।অনুগ্রহ করে অপেক্ষা করুন।আমাদের প্রতিনিধি আপনার সাথে অতি দ্রুত যোগাযোগ করবেন।"
                     
                     user_sessions[sender_id].append({"role": "assistant", "content": ai_reply})
                     

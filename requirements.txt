@@ -6,3 +6,5 @@ langchain-core
 langchain-groq
 supabase
 gunicorn
+langchain-mistralai
+langchain-huggingface
