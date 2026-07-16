@@ -4,7 +4,6 @@ from supabase.client import create_client
 
 @tool
 def process_hardcopy_order(
-    user_id: str,
     book_id: str,
     child_name: str,
     custom_note: str,
@@ -14,6 +13,7 @@ def process_hardcopy_order(
     trx_id: str,
     delivery_phone: str,
     delivery_address: str,
+    user_id: str = None, 
     quantity: int = 1
 ) -> str:
     """
@@ -28,7 +28,6 @@ def process_hardcopy_order(
     
     try:
         order_payload = {
-            "user_id": user_id,
             "total_amount": total_amount,
             "delivery_fee": delivery_fee,
             "status": "pending",
@@ -38,6 +37,9 @@ def process_hardcopy_order(
             "delivery_address": delivery_address
         }
         
+        if user_id:
+            order_payload["user_id"] = user_id
+            
         order_response = supabase.table("orders").insert(order_payload).execute()
         inserted_order = order_response.data[0]
         new_order_id = inserted_order["id"]
