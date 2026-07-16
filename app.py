@@ -4,7 +4,8 @@ from flask import Flask, request
 import requests
 
 from supabase.client import create_client
-from langchain_huggingface import HuggingFaceEmbeddings
+# Switched to the Inference API to save server RAM
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
 from langchain_community.vectorstores import SupabaseVectorStore
 from langchain_groq import ChatGroq
 from langchain.agents import create_agent
@@ -16,8 +17,8 @@ from tools import process_hardcopy_order
 load_dotenv()
 app = Flask(__name__)
 
-# Verify that all required execution environment variables are present
-REQUIRED_ENV_VARS = ["GROQ_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_KEY", "FB_VERIFY_TOKEN", "FB_PAGE_ACCESS_TOKEN"]
+# Added HF_TOKEN to the required variables list
+REQUIRED_ENV_VARS = ["GROQ_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_KEY", "FB_VERIFY_TOKEN", "FB_PAGE_ACCESS_TOKEN", "HF_TOKEN"]
 for var in REQUIRED_ENV_VARS:
     if not os.environ.get(var):
         raise ValueError(f"Missing required environment variable: {var}")
@@ -28,8 +29,11 @@ supabase_client = create_client(
     os.environ.get("SUPABASE_SERVICE_KEY")
 )
 
-# 2. Setup Embedding Vector Generator
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+# 2. Setup Embedding Vector Generator using Hugging Face Cloud API
+embeddings = HuggingFaceInferenceAPIEmbeddings(
+    api_key=os.environ.get("HF_TOKEN"),
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
 
 # 3. Mount the Supabase pgvector instance
 vector_store = SupabaseVectorStore(

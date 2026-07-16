@@ -6,5 +6,4 @@ langchain-community
 langchain-groq
 langchain-huggingface
 supabase
-sentence-transformers
 gunicorn
