@@ -2,8 +2,7 @@ flask
 requests
 python-dotenv
 langchain
-langchain-community
+langchain-core
 langchain-groq
-langchain-huggingface
 supabase
 gunicorn

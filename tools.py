@@ -1,6 +1,5 @@
 import os
-import uuid
-from langchain.tools import tool
+from langchain_core.tools import tool
 from supabase.client import create_client
 
 @tool
@@ -23,14 +22,11 @@ def process_hardcopy_order(
     
     All arguments are required string or numeric types mapping exactly to the DB schema.
     """
-    # Initialize the Supabase client using environment variables
     supabase_url = os.environ.get("SUPABASE_URL")
     supabase_key = os.environ.get("SUPABASE_SERVICE_KEY")
     supabase = create_client(supabase_url, supabase_key)
     
     try:
-        # Step 1: Create the parent record in the 'orders' table
-        # We explicitly set status to 'pending' as requested
         order_payload = {
             "user_id": user_id,
             "total_amount": total_amount,
@@ -43,28 +39,51 @@ def process_hardcopy_order(
         }
         
         order_response = supabase.table("orders").insert(order_payload).execute()
-        
-        # Extract the newly generated order UUID to link the child item
         inserted_order = order_response.data[0]
         new_order_id = inserted_order["id"]
         
-        # Step 2: Create the child record in the 'order_items' table
         item_payload = {
             "order_id": new_order_id,
             "book_id": book_id,
-            "package_index": 1,          # Default fallback index
-            "package_type": "Standard",    # Default package fallback
+            "package_index": 1,
+            "package_type": "Standard",
             "wants_photo": False,
             "child_name": child_name,
             "custom_note": custom_note,
-            "price": total_amount - delivery_fee, # Net book cost calculation
+            "price": total_amount - delivery_fee,
             "quantity": quantity
         }
         
         supabase.table("order_items").insert(item_payload).execute()
-        
-        # Return status confirmation token text back to the ReAct agent context loop
         return "SUCCESS: Order and order_items records saved with status='pending'."
         
     except Exception as e:
         return f"Database insertion error encountered: {str(e)}"
+
+
+@tool
+def fetch_realtime_books(query: str = "") -> str:
+    """
+    Use this tool to fetch the LIVE list of books, themes, prices, and target ages from the database.
+    Call this whenever a customer asks about available books, prices, or options.
+    """
+    try:
+        url = os.environ.get("SUPABASE_URL")
+        key = os.environ.get("SUPABASE_SERVICE_KEY")
+        supabase = create_client(url, key)
+        
+        # Fetch data directly from the 'books' table
+        response = supabase.table("books").select("id, title, author, theme, target_age, price_standard").execute()
+        books = response.data
+        
+        if not books:
+            return "বর্তমানে ডাটাবেসে কোনো বইয়ের তথ্য নেই।"
+            
+        result = "BoiKiit Live Book Inventory:\n"
+        for b in books:
+            result += f"- Book ID: {b.get('id')}, Title: {b.get('title')}, Theme: {b.get('theme')}, Age: {b.get('target_age')}+, Price: {b.get('price_standard')} TK\n"
+        
+        return result
+        
+    except Exception as e:
+        return f"Database error: {str(e)}"
