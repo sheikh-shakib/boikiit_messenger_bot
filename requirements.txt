@@ -1,0 +1,9 @@
+flask
+requests
+python-dotenv
+langchain
+langchain-community
+langchain-groq
+langchain-huggingface
+supabase
+sentence-transformers
