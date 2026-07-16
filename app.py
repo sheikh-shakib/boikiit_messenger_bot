@@ -29,10 +29,9 @@ supabase_client = create_client(
     os.environ.get("SUPABASE_SERVICE_KEY")
 )
 
-# 2. Setup Embedding Vector Generator using Hugging Face Cloud API
 embeddings = HuggingFaceEndpointEmbeddings(
     api_key=os.environ.get("HF_TOKEN"),
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+    model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2" 
 )
 
 # 3. Mount the Supabase pgvector instance

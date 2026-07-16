@@ -1,4 +1,5 @@
 import os
+import time # Imported for the retry mechanism delay
 from dotenv import load_dotenv
 from supabase.client import create_client, Client
 from langchain_community.vectorstores import SupabaseVectorStore
@@ -93,23 +94,41 @@ def fetch_and_ingest_all_knowledge():
     print("--- PART 3: Initializing Embedding Pipeline via Hugging Face API ---")
 
     embeddings = HuggingFaceEndpointEmbeddings(
-        model="sentence-transformers/all-MiniLM-L6-v2",
+        model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2", 
         huggingfacehub_api_token=hf_token
     )
 
-    # Push the combined texts (FAQs + Books) and vectors into the Supabase 'documents' table
-    try:
-        SupabaseVectorStore.from_texts(
-            texts=aggregated_texts,
-            embedding=embeddings,
-            client=supabase,
-            table_name="documents",
-            query_name="match_documents",
-            metadatas=metadata_list
-        )
-        print("✅ Vector ingestion complete! The AI Agent now knows what BoiKiit is AND has the latest book data.")
-    except Exception as e:
-        print(f"❌ Failed to upload embeddings to the vector store: {e}")
+    # Implement a retry logic block to handle 504 Gateway Time-out (Cold Start)
+    max_retries = 4
+    for attempt in range(max_retries):
+        try:
+            print(f"Attempt {attempt + 1} of {max_retries} to upload embeddings...")
+            SupabaseVectorStore.from_texts(
+                texts=aggregated_texts,
+                embedding=embeddings,
+                client=supabase,
+                table_name="documents",
+                query_name="match_documents",
+                metadatas=metadata_list
+            )
+            print("✅ Vector ingestion complete! The AI Agent now knows what BoiKiit is AND has the latest book data.")
+            break  # Exit the loop successfully
+            
+        except Exception as e:
+            print(f"❌ Attempt {attempt + 1} failed: {e}")
+            error_message = str(e)
+            
+            # Check if it is a timeout issue
+            if "504" in error_message or "503" in error_message or "Timeout" in error_message:
+                if attempt < max_retries - 1:
+                    print("The Hugging Face model is likely waking up (Cold Start). Waiting 20 seconds before retrying...")
+                    time.sleep(20)
+                else:
+                    print("❌ Max retries reached. Hugging Face servers are too busy. Please try running the script again later.")
+            else:
+                # If it's a different kind of error, stop retrying
+                print("❌ An unexpected error occurred. Aborting.")
+                break
 
 if __name__ == "__main__":
     fetch_and_ingest_all_knowledge()
