@@ -41,6 +41,7 @@ tools = [fetch_realtime_books, process_hardcopy_order]
 
 user_sessions = {}
 processed_mids = []
+user_locks = {}
 
 # --- 2. System Prompt & Rules ---
 system_rules = """
@@ -93,26 +94,30 @@ agent = create_agent(
 def process_message_background(sender_id, user_query):
     print(f"Processing client query from {sender_id}: {user_query}")
     
-    if sender_id not in user_sessions:
-        user_sessions[sender_id] = []
-    
-    user_sessions[sender_id].append({"role": "user", "content": user_query})
-    
-    chat_history = user_sessions[sender_id][-20:] 
-    
-    try:
-        response = agent.invoke({"messages": chat_history})
-        ai_reply = response["messages"][-1].content
-
-        # Regex Filter: Remove raw function calling syntax
-        ai_reply = re.sub(r"<function=.*?</function>", "", ai_reply, flags=re.DOTALL).strip()
+    if sender_id not in user_locks:
+        user_locks[sender_id] = threading.Lock()
         
-    except Exception as error:
-        print(f"Internal Agent Exception: {error}")
-        ai_reply = "আসসালামু আলাইকুম।অনুগ্রহ করে অপেক্ষা করুন।আমাদের প্রতিনিধি আপনার সাথে অতি দ্রুত যোগাযোগ করবেন।"
-    
-    user_sessions[sender_id].append({"role": "assistant", "content": ai_reply})
-    dispatch_fb_response(sender_id, ai_reply)
+    with user_locks[sender_id]:
+        if sender_id not in user_sessions:
+            user_sessions[sender_id] = []
+        
+        user_sessions[sender_id].append({"role": "user", "content": user_query})
+        
+        chat_history = user_sessions[sender_id][-20:] 
+        
+        try:
+            response = agent.invoke({"messages": chat_history})
+            ai_reply = response["messages"][-1].content
+
+            # Regex Filter: Remove raw function calling syntax
+            ai_reply = re.sub(r"<function=.*?</function>", "", ai_reply, flags=re.DOTALL).strip()
+            
+        except Exception as error:
+            print(f"Internal Agent Exception: {error}")
+            ai_reply = "আসসালামু আলাইকুম।অনুগ্রহ করে অপেক্ষা করুন।আমাদের প্রতিনিধি আপনার সাথে অতি দ্রুত যোগাযোগ করবেন।"
+        
+        user_sessions[sender_id].append({"role": "assistant", "content": ai_reply})
+        dispatch_fb_response(sender_id, ai_reply)
 
 # --- 4. Webhook Routes ---
 @app.route('/webhook', methods=['GET'])
